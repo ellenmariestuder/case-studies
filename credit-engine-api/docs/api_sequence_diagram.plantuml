@@ -1,0 +1,156 @@
+@startuml sequence diagram
+participant Participant [
+    =CreditPullTemplate
+]
+
+participant TransunionRequest
+participant TransUnionAPI
+participant TransunionResponse
+participant PassDecisions
+participant TradelineAnalysis
+participant SalesforceHandler
+participant Account
+participant Opportunity
+participant CreditPull
+participant IDVerify
+participant Tradeline
+participant QUERY
+participant UPDATE
+participant CREATE
+participant Salesforce
+
+Participant -> SalesforceHandler : event fields
+group 1. Query Account
+note left
+event fields = 
+- opp_id
+- account_id
+- record_type
+- cra_in_progress
+end note
+SalesforceHandler -> Account : event fields
+Account -> QUERY    : payload
+QUERY -> Salesforce : payload
+' note right
+' user data = 
+' - event fields
+' + account data
+' + amount requested
+' end note
+Salesforce -> SalesforceHandler  : account data
+end
+SalesforceHandler -> Participant : account data
+group 2. Send TransUnion Request
+Participant -> TransunionRequest : account data
+TransunionRequest -> TransUnionAPI : request
+TransUnionAPI -> TransunionRequest : response
+TransunionRequest -> Participant : response
+end
+group 3. Parse TransUnion Response
+Participant -> TransunionResponse : response
+TransunionResponse -> TransunionResponse : parse
+TransunionResponse -> TransunionResponse : error-handle
+TransunionResponse -> Participant : parsed response
+end
+group 4. Pass Decision Analyses
+Participant -> PassDecisions : parsed response
+PassDecisions -> TradelineAnalysis : parsed response
+TradelineAnalysis -> TradelineAnalysis : bankruptcies
+TradelineAnalysis -> TradelineAnalysis : notes
+TradelineAnalysis -> TradelineAnalysis : fail_reasons
+PassDecisions -> PassDecisions : credit_pull_pass 
+PassDecisions -> PassDecisions : mla_pass
+PassDecisions -> PassDecisions : id_verify_pass
+PassDecisions -> Participant : pass_decision instance
+end
+group 5. Send Credit Pull data to Salesforce
+Participant -> SalesforceHandler : parsed response, pass_decision instance
+group Update Opportunity 
+SalesforceHandler -> Opportunity : tu_resp.score_model, pass_decision (instance)
+Opportunity -> UPDATE : opportunity payload
+UPDATE -> Salesforce : opportunity payload
+Salesforce -> UPDATE : Status code
+UPDATE -> SalesforceHandler : Status code
+end
+SalesforceHandler -> Participant :  Status code
+group Create CreditPull 
+SalesforceHandler -> CreditPull : tu_resp.consumer_file, pass_decision.credit_pull_pass
+CreditPull -> CREATE : credit_pull payload
+CREATE -> Salesforce : credit_pull payload
+Salesforce -> CREATE : Status code, credit_pull_id
+CREATE -> SalesforceHandler : Status code, credit_pull_id
+end
+SalesforceHandler -> Participant :  Status code, credit_pull_id
+group Create IDVerify 
+SalesforceHandler -> IDVerify : tu_resp.id_verify, pass_decision.idv_pass
+IDVerify -> CREATE : id_verify payload
+CREATE -> Salesforce : id_verify payload
+Salesforce -> CREATE : Status code
+CREATE -> SalesforceHandler : Status code
+end
+SalesforceHandler -> Participant :  Status code
+group Create Tradeline(s) 
+SalesforceHandler -> Tradeline : credit_pull_id, tu_resp.tradeline
+Tradeline -> CREATE : tradeline payload(s)
+CREATE -> Salesforce : tradeline payload(s)
+Salesforce -> CREATE : Status code
+CREATE -> SalesforceHandler : Status code
+end
+SalesforceHandler -> Participant :  Status code
+end
+
+' TransunionData -> TransunionData : parse
+' TransunionData -> TransunionData : flag errors
+' TransunionData -> Participant    : transunion data, error messages
+' Participant -> SendToSalesforce : opp_id
+' SendToSalesforce -> Participant : SendToSalesforce instance
+' group if credit pull failed...
+' Participant -> SendToSalesforce       : error messages
+' SendToSalesforce -> SalesforcePayload : payload type, opp_id, error messages
+' SalesforcePayload -> SendToSalesforce : payload
+' SendToSalesforce -> Salesforce        : payload
+' Salesforce -> SendToSalesforce        : status code
+' SendToSalesforce -> Participant       : status code 
+' end
+' group if credit pull succeeded...
+' Participant -> IsSuccess : transunion data
+' IsSuccess -> TradelineAnalysis : transunion tradeline data
+' TradelineAnalysis -> IsSuccess : 'is_success', notes, fail_reasons
+' IsSuccess -> IsSuccess : calculate credit pass
+' IsSuccess -> IsSuccess : calculate mla pass
+' IsSuccess -> IsSuccess : calculate id verification pass
+' IsSuccess -> Participant : pass results, notes, fail_reasons
+' group 1. send opp payload
+' Participant -> SendToSalesforce: pass_statuses
+' SendToSalesforce -> SalesforcePayload : payload type, opp_id, pass_statuses
+' SalesforcePayload -> SendToSalesforce : payload
+' SendToSalesforce -> Salesforce : payload
+' Salesforce -> SendToSalesforce : status code, tu_pull_id
+' SendToSalesforce -> Participant : status code, tu_pull_id
+' end
+' group 2. send credit pull (object) payload
+' Participant -> SendToSalesforce: pass_statuses, transunion_data['scoreModel'], tu_pull_id
+' SendToSalesforce -> SalesforcePayload : payload type, opp_id, pass_statuses, transunion_data['scoreModel'], tu_pull_id
+' SalesforcePayload -> SendToSalesforce : payload
+' SendToSalesforce -> Salesforce : payload
+' Salesforce -> SendToSalesforce : status code
+' SendToSalesforce -> Participant : status code
+' end
+' group 4. send other (object) payloads
+' Participant -> SendToSalesforce: transunion_data['']
+' note left
+' "id verification"
+' "address"
+' "employment"
+' "publicRecord"
+' end note
+' SendToSalesforce -> SalesforcePayload : payload type, opp_id, transunion_data['']
+' SalesforcePayload -> SendToSalesforce : payload
+' SendToSalesforce -> Salesforce : payload
+' Salesforce -> SendToSalesforce : status code
+' SendToSalesforce -> Participant : status code
+' end
+' end 
+
+@enduml
+

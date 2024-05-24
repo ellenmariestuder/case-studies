@@ -1,0 +1,34 @@
+@startuml sequence diagram
+participant Participant [
+    =Salesforce
+]
+
+participant CreditEnginePublisher
+database AWSDynamoDB
+queue AWSSQSQueue
+participant CreditEngineAPI
+participant TransUnionAPI
+
+
+Participant -> CreditEnginePublisher : Applicant Data
+group check dynamo
+CreditEnginePublisher -> AWSDynamoDB : Applicant Id
+alt Applicant Id already in table
+AWSDynamoDB -> CreditEnginePublisher : end process
+else Applicant Id not in table
+CreditEnginePublisher -> AWSDynamoDB : Applicant Id + \nDate, time of request
+AWSDynamoDB -> CreditEnginePublisher : Status code
+end
+end
+note right: For Idempotency: \n\nEach loan application has a unique id. \nChecking the Dynamo table ("CRA_RUN")\nfor the current request's applicant id tells\nus whether or not a credit pull has been\ndone for that application already.\n\nIf yes, don't pull credit again.\nIf no, proceed with credit pull.
+
+CreditEnginePublisher -> AWSSQSQueue : Applicant Data
+AWSSQSQueue -> CreditEngineAPI       : Applicant Data
+CreditEngineAPI -> CreditEngineAPI   : Package data into\nxml request body
+CreditEngineAPI -> TransUnionAPI     : Request body
+TransUnionAPI -> CreditEngineAPI     : Response data
+CreditEngineAPI -> CreditEngineAPI   : Parse response data
+CreditEngineAPI -> CreditEngineAPI   : Apply business logic
+CreditEngineAPI -> Participant       : Processed credit \nreport data
+
+@enduml
