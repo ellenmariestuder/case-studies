@@ -40,8 +40,7 @@ The project's architecture is designed to automate credit pulls efficiently and 
 5. **TransUnion Interaction** 
     > TransUnion API returns requested credit report data.
 6. **Credit Engine API Processing and Upload**
-> *  Credit Engine parses response data, applies business logic for evaluating applicant’s loan eligibility
-> *  Uploads processed credit report data to originating Salesforce Opportunity
+    > Credit Engine parses response data, applies business logic for evaluating applicant’s loan eligibility; then uploads processed credit report data to originating Salesforce Opportunity
 
 \* An 'Opportunity' in Salesforce refers to an applicant’s underwriting record
 
@@ -94,3 +93,6 @@ The deployment of our Credit Engine API is designed to maximize automation and r
 - AWS VPC and Subnets: Utilizes AWS VPC, subnets for network isolation, enhancing controlled access through whitelisting of IP ranges
 - PEM Certificate Validation: Employs PEM certificate validation for data encryption, ensuring secure data transmission with external APIs
 - IAM Roles and Policies: Applies IAM roles to restrict resource access within AWS to authorized services and personnel only, allowing secure interaction among services like Lambda, SQS, and ECR while adhering to the principle of least privilege
+
+## Challenges & Lessons Learned
+_See: [Critical Section README](./critical-section-problem/README.md)_
