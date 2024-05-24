@@ -70,12 +70,27 @@ The API sequence diagram below depicts the data flow within the Credit Engine AP
 ### Third-Party Platforms
 - TransUnion API for retrieving applicants’ credit report data
 - Salesforce CRM for retrieving applicant data and storing credit pull results
-## Security Measures
-- Utilizes AWS VPC and subnets for network isolation, enhancing controlled access through whitelisting of IP ranges
-- Employs PEM certificates for data encryption, ensuring secure data transmission
-- Applies IAM roles to restrict resource access within AWS to authorized services and personnel only
 
-## Infrastructure Setup
+## Infrastructure & Security
 ### Deployment
+The deployment of our Credit Engine API is designed to maximize automation and reliability using CircleCI, AWS Lambda, and AWS ECR. This setup facilitates a robust, automated pipeline that ensures code is thoroughly tested, securely containerized, and deployed seamlessly to a serverless environment.
+
+#### CI/CD Pipeline:
+- Automated Testing and Coverage: Code commits trigger automated workflow in CircleCI; tests and coverage reports are run to ensure quality and reliability
+- Containerization: Upon successful testing, code is containerized using Docker; Docker image is pushed to AWS ECR (managed Docker container registry), ensuring secure and versioned storage of application images
+- Lambda Deployment: Finally, AWS Lambda function is updated with latest Docker image from AWS ECR
 ### Networking
-### Security
+#### Lambda Configuration within VPC:
+- VPC Integration: Credit Engine Lambda function operates within specific AWS VPC private subnet, allowing it to successfully execute requests to TransUnion API via static, whitelisted ip address
+- Network Isolation and Security: Running within VPC subnet isolates Credit Engine from public internet access, controlling exposure and access through defined security groups
+#### Event-Driven Invocation:
+- SQS as Trigger: 
+> - Credit Engine Lambda function is triggered by messages arriving in an AWS SQS queue
+> - Each new message initiates separate instance of Lambda function, effectively handling incoming events in parallel and ensuring scalable, responsive processing of tasks as they arrive
+- Scalable Event Handling: 
+> - This setup facilitates automatic scaling of Lambda according to volume of incoming messages
+> - AWS manages instantiation of function instances based on rate and number of messages in the SQS queue
+#### Security and Compliance:
+- AWS VPC and Subnets: Utilizes AWS VPC, subnets for network isolation, enhancing controlled access through whitelisting of IP ranges
+- PEM Certificate Validation: Employs PEM certificate validation for data encryption, ensuring secure data transmission with external APIs
+- IAM Roles and Policies: Applies IAM roles to restrict resource access within AWS to authorized services and personnel only, allowing secure interaction among services like Lambda, SQS, and ECR while adhering to the principle of least privilege
